@@ -1329,7 +1329,7 @@ nb.css.serializeCSSObject = function(selector,o)
     let css = [];
     o.merge && o.merge.split(/\s+/g).forEach(name => {
         if(!nb.css.classes[name]) return console.warn(name+" js-css not found")
-        nb.css.copyCSSObject(o,nb.css.classes[name])
+        nb.css.copyCSSObject(o,nb.css.classes[name]);
     })
     for(let name in o)
     {
@@ -1364,17 +1364,31 @@ nb.css.serializeCSSObject = function(selector,o)
     return css.join('')
 }
 nb.css.copyCSSObject = function(target,source){
-    for(let name in source)
+    for(let name in source) switch(name)
     {
-        if(typeof target[name] === "undefined" || typeof target[name] == "string" || typeof source[name] == "number" || typeof source[name] == "function")
-        {
-            target[name] = source[name]
-        }else if(typeof target[name] == "string" || typeof target[name] == "number" || typeof target[name] == "function"){
-            target[name] = Object.assign({$:target[name]},source[name])
-        }else if(typeof source[name] == "string" || typeof source[name] == "number" || typeof source[name] == "function"){
-            target[name].$ = source[name]
-        }else{
-            nb.css.copyCSSObject(target[name], source[name])
+        case "merge":{
+            source[name].split(/\s+/g).forEach(name => {
+                if(!nb.css.classes[name]) return console.warn(name+" js-css not found")
+                nb.css.copyCSSObject(target,nb.css.classes[name]);
+            })
+            break;
+        };
+        default:{
+            if(typeof target[name] === "undefined" || typeof target[name] == "string" || typeof source[name] == "number" || typeof source[name] == "function")
+            {
+                if(typeof source[name] == "object")
+                {
+                    target[name] = {...source[name]}
+                }else{
+                    target[name] = source[name]
+                }
+            }else if(typeof target[name] == "string" || typeof target[name] == "number" || typeof target[name] == "function"){
+                target[name] = {$:target[name],...source[name]};
+            }else if(typeof source[name] == "string" || typeof source[name] == "number" || typeof source[name] == "function"){
+                target[name].$ = source[name]
+            }else{
+                nb.css.copyCSSObject(target[name], source[name])
+            }
         }
     }
 }
@@ -1399,7 +1413,7 @@ nb.css.mediaTitleResolver = function(e){
 nb.css.add = function(name,cssObject)
 {
     if(nb.css.classes[name]) throw new Error(name+" rule already exists");
-    nb.css.classes[name] = cssObject;
+    nb.css.classes[name] = Object.freeze(cssObject);
 }
 nb.css.applyCSSRuleDom = function(element,css){
     css.split(/\s*;\s*/g).map(function(e){
@@ -1415,7 +1429,8 @@ nb.css.ready = false;
 nb.css.use = function(id,selector)
 {
     if(!nb.css.ready){
-        nb.css.dom.put(document.head)
+        nb.css.dom.put(document.head);
+        nb.css.ready = true;
     }
     let cssObjectName = (
         typeof id == "string" ? id.split(/\s+/g,) : id
@@ -2311,6 +2326,16 @@ nb.design = function(o){
                 switch(key)
                 {
                     case "$":break;
+                    case "style":{
+                        if(typeof jselement.style == "string" || typeof jselement.style == "number")
+                        {
+                            current.elem.style = jselement.style;
+                            break;
+                        }else if(typeof jselement.style == "object"){
+                            current.elem.style = nb.css.serializeRule(jselement.style);
+                            break;
+                        }else continue;
+                    }
                     case "in":
                         current.add(nb.design(jselement.in));
                         break;
