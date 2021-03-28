@@ -949,6 +949,7 @@ nb.fn.prototype.is = function(selector)
  * 
  * @param {String} name 
  * @param {String} value 
+ * @returns {nb.fn}
  */
 nb.fn.prototype.attr = function(name,value)
 {
@@ -981,6 +982,7 @@ nb.fn.prototype.attr = function(name,value)
  * 
  * @param {String} name 
  * @param {String} value 
+ * @returns {nb.fn}
  */
 nb.fn.prototype.removeAttr = function(name,value)
 {
@@ -1014,6 +1016,7 @@ nb.fn.prototype.removeAttr = function(name,value)
  * 
  * @param {String} name 
  * @param {String} value 
+ * @returns {nb.fn}
  */
 nb.fn.prototype.toggleAttr = function(name,value)
 {
@@ -1026,6 +1029,7 @@ nb.fn.prototype.toggleAttr = function(name,value)
  * 
  * @param {String} name 
  * @param {String} value 
+ * @returns {nb.fn}
  */
 nb.fn.prototype.truncate = function()
 {
@@ -1038,6 +1042,7 @@ nb.fn.prototype.truncate = function()
  * 
  * @param {String} name 
  * @param {String} value 
+ * @returns {nb.fn}
  */
 nb.fn.prototype.clone = function(deep)
 {
@@ -1045,6 +1050,11 @@ nb.fn.prototype.clone = function(deep)
         return elem.cloneNode(deep)
     }))
 };
+/**
+ * 
+ * @param  {...Node|Element|nb.fn} args 
+ * @returns {nb.fn}
+ */
 nb.fn.prototype.add = function(...args)
 {
     let dom = nb.dom(...args);
@@ -1053,6 +1063,11 @@ nb.fn.prototype.add = function(...args)
     })
     return this;
 };
+/**
+ * 
+ * @param  {...Node|Element|nb.fn} args 
+ * @returns {nb.fn}
+ */
 nb.fn.prototype.put = function(...args)
 {
     let dom = nb.dom(...args);
@@ -1061,6 +1076,11 @@ nb.fn.prototype.put = function(...args)
     })
     return this;
 };
+/**
+ * 
+ * @param {String} selector 
+ * @returns {nb.fn}
+ */
 nb.fn.prototype.remove = function(selector)
 {
     this.each(elem => {
@@ -1068,6 +1088,11 @@ nb.fn.prototype.remove = function(selector)
     })
     return this;
 };
+/**
+ * 
+ * @param {String} value 
+ * @returns {String}
+ */
 nb.fn.prototype.html = function(value)
 {
     if(value === undefined)
@@ -1080,6 +1105,11 @@ nb.fn.prototype.html = function(value)
         return this;
     }
 };
+/**
+ * 
+ * @param {String} value 
+ * @returns {String}
+ */
 nb.fn.prototype.text = function(value)
 {
     if(value === undefined)
@@ -1092,6 +1122,11 @@ nb.fn.prototype.text = function(value)
         return this;
     }
 };
+/**
+ * 
+ * @param {String} value 
+ * @returns {String}
+ */
 nb.fn.prototype.textContent = function(value)
 {
     if(value === undefined)
@@ -1104,6 +1139,11 @@ nb.fn.prototype.textContent = function(value)
         return this;
     }
 };
+/**
+ * 
+ * @param {String} value 
+ * @returns {String}
+ */
 nb.fn.prototype.value = function(value)
 {
     if(value === undefined)
@@ -1129,6 +1169,14 @@ nb.fn.prototype.value = function(value)
         return this;
     }
 };
+/**
+ * 
+ * @param {String} eventName 
+ * @param {Strng} query 
+ * @param {Function} callback 
+ * @param {EventListenerOptions} options 
+ * @returns {nb.fn}
+ */
 nb.fn.prototype.on = function(eventName,query,callback,options){
     let events = eventName.split(/\s*,\s*/g)
     if(typeof query == "function"){
@@ -1154,6 +1202,12 @@ nb.fn.prototype.on = function(eventName,query,callback,options){
         })
     }
 }
+/**
+ * 
+ * @param {String} eventName 
+ * @param {EventListenerOptions} options 
+ * @returns {nb.fn}
+ */
 nb.fn.prototype.trigger = function(eventName,options){
     if(eventName instanceof Event){
         return this.each(function(){
@@ -1178,7 +1232,7 @@ nb.fn.prototype.off = function(eventName,callback){
         })
     })
 }
-nb.fn.prototype.css = function(name,value,periority){
+nb.fn.prototype.css = function(name,value){
     if(this.empty || !this.elem) return this;
     if(typeof name == "string")
     {
@@ -1798,8 +1852,32 @@ nb.RGB.prototype.toString = function(){
 nb.xhr = function()
 {
 
+    this.data = undefined;
+    this.method = "GET";
+    this.baseURL = new URL(window.location);
+    this.url = new URL(window.location);
+    this.postDataType = "application/x-www-form-urlencoded";
+    this.postType = "multipart";
+    this.charset = "utf8";
+    this.headers = {};
+    this.isWaiting = false;
+    this.isLoaded = false;
+    this.ready = false;
+    this.events = {
+        load:[],
+        success:[],
+        timeout:[],
+        error:[],
+        start:[],
+        finish:[],
+        downloadprogress:[],
+        uploadprogress:[],
+        abort:[],
+        statechange:[],
+        redirect:[]
+    };
     let _url,
-        _baseurl = this.baseURL,
+        _baseurl = new URL(window.location),
         _data,
         _method,
         _successCallback,
@@ -1825,7 +1903,7 @@ nb.xhr = function()
     if(_args.length == 1 && _objects.length == 1)
     {
         let o = _objects[0];
-        o.baseURL && (_baseurl = new URL(o.url,this.baseURL));
+        o.baseURL && (_baseurl = new URL(o.url,_baseurl));
         o.url && (_url = new URL(o.url,_baseurl));
         o.data && (_data = o.data);
         o.success && (_successCallback = o.success);
@@ -1840,8 +1918,8 @@ nb.xhr = function()
             let y = nb.xhr.methods.includes(x.toUpperCase());
             return !(y && (_method = x.toUpperCase()));
         });
-        _strings.length == 1 && (_url ||= new URL(_strings[0],this.baseURL));
-        _strings.length == 2 && (_url ||= new URL(_strings[0],this.baseURL)) && nb.xhr.putParams(_strings[1],this.url);
+        _strings.length == 1 && (_url ||= new URL(_strings[0],_baseurl));
+        _strings.length == 2 && (_url ||= new URL(_strings[0],_baseurl)) && nb.xhr.putParams(_strings[1],this.url);
         _callbacks[0] && (_successCallback = _callbacks[0]);
         _callbacks[1] && (_errorCallback = _callbacks[1]);
         _callbacks[2] && (_uploadProgress = _callbacks[2]);
@@ -1852,8 +1930,9 @@ nb.xhr = function()
     };
 
     this.url = _url;
-    this.method = _method || this.method;
+    this.method = _method || this.method || "GET";
     this.headers = _headers;
+    this.baseURL = _baseurl;
 
     if(_data)
     {
@@ -1936,105 +2015,81 @@ nb.xhr = function()
     _successCallback && this.success(_successCallback);
     _downloadProgress && this.downloadprogress(_downloadProgress);
     _uploadProgress && this.uploadprogress(_uploadProgress);
-};
-nb.xhr.prototype.data = undefined;
-nb.xhr.prototype.method = "GET";
-nb.xhr.prototype.baseURL = new URL(window.location);
-nb.xhr.prototype.url = new URL(window.location);
-nb.xhr.prototype.postDataType = "application/x-www-form-urlencoded";
-nb.xhr.prototype.postType = "multipart";
-nb.xhr.prototype.charset = "utf8";
-nb.xhr.prototype.headers = {};
-nb.xhr.prototype.isWaiting = false;
-nb.xhr.prototype.isLoaded = false;
-nb.xhr.prototype.ready = false;
-nb.xhr.prototype.events = {
-    load:[],
-    success:[],
-    timeout:[],
-    error:[],
-    start:[],
-    finish:[],
-    downloadprogress:[],
-    uploadprogress:[],
-    abort:[],
-    statechange:[],
-    redirect:[]
-};
-nb.xhr.prototype.trigger = function(event,...args){
-    this.events[event].forEach(f => f.apply(this,args));
-}
-nb.xhr.prototype.load = function(f){this.events.load.push(f)};
-nb.xhr.prototype.success = function(f){this.events.success.push(f)};
-nb.xhr.prototype.timeout = function(f){this.events.timeout.push(f)};
-nb.xhr.prototype.error = function(f){this.events.error.push(f)};
-nb.xhr.prototype.start = function(f){this.events.start.push(f)};
-nb.xhr.prototype.finish = function(f){this.events.finish.push(f)};
-nb.xhr.prototype.downloadprogress = function(f){this.events.downloadprogress.push(f)};
-nb.xhr.prototype.uploadprogress = function(f){this.events.uploadprogress.push(f)};
-nb.xhr.prototype.abort = function(f){this.events.abort.push(f)};
-nb.xhr.prototype.redirect = function(f){this.events.redirect.push(f)};
-nb.xhr.prototype.statechange = function(f){this.events.statechange.push(f)};
-nb.xhr.prototype.responseData = undefined;
-nb.xhr.prototype.load(function(i) {
-    let contentType = this.request.getResponseHeader("content-type");
-    let isJSON = nb.xhr.jsonReg.test(contentType);
-    let isXML = nb.xhr.xmlBased.test(contentType);
-    if(isJSON){
-       this.responseData = JSON.parse(this.request.response)
-    }else if(isXML){
-        this.responseData = this.request.responseXML;
-    }else{
-        this.responseData = this.request.response;
-    }
-    this.isWaiting = false;
-    if (this.request.status >= 200 && this.request.status < 300) {
-        this.trigger("success",this.responseData);
-    }else if (this.request.status >= 300 && this.request.status < 400) {
-        this.trigger("redirect",this.request.getResponseHeader("location"));
-    };
-    this.isLoaded = true;
-    this.ready = true;
-    this.trigger("finish");
-});
-nb.xhr.prototype.error(function(i) {
-    this.isWaiting = false;
-    this.isLoaded = true;
-    this.ready = false;
-    this.trigger("finish");
-});
-nb.xhr.prototype.send = async function(){
-    if(this.isWaiting) return;
-    this.trigger("start",this);
-    this.isWaiting = true;
-    this.request.open(this.method,this.url.toString(),true);
-    this.request.send(this.data);
-    return await new Promise(ok=>{
-        this.finish(i => ok(this.responseData));
-    })
-};
 
-nb.xhr.prototype.then = function(f){
-    if(this.isWaiting)
-    {
-        this.finish(k => f(this.responseData));
-    }else if(this.isLoaded){
-        f.apply(this.request,[this.responseData])
-    }else{
-        this.send();
-        this.finish(k => f(this.responseData));
+    this.trigger = function(event,...args){
+        this.events[event].forEach(f => f.apply(this,args));
     }
-};
-nb.xhr.prototype.catch = function(f){
-    if(this.isWaiting)
-    {
-        this.error(x => f(this.request.responseText));
-        this.timeout(x => f(this.request.responseText));
-    }else if(!this.isLoaded){
-        this.send();
-        this.error(x => f(this.request.responseText));
-        this.timeout(x => f(this.request.responseText));
-    }
+    this.load = function(f){this.events.load.push(f)};
+    this.success = function(f){this.events.success.push(f)};
+    this.timeout = function(f){this.events.timeout.push(f)};
+    this.error = function(f){this.events.error.push(f)};
+    this.start = function(f){this.events.start.push(f)};
+    this.finish = function(f){this.events.finish.push(f)};
+    this.downloadprogress = function(f){this.events.downloadprogress.push(f)};
+    this.uploadprogress = function(f){this.events.uploadprogress.push(f)};
+    this.abort = function(f){this.events.abort.push(f)};
+    this.redirect = function(f){this.events.redirect.push(f)};
+    this.statechange = function(f){this.events.statechange.push(f)};
+    this.responseData = undefined;
+    this.load(function(i) {
+        let contentType = this.request.getResponseHeader("content-type");
+        let isJSON = nb.xhr.jsonReg.test(contentType);
+        let isXML = nb.xhr.xmlBased.test(contentType);
+        if(isJSON){
+            this.responseData = JSON.parse(this.request.response) || this.request.response
+        }else if(isXML){
+            this.responseData = this.request.responseXML || this.request.response;
+        }else{
+            this.responseData = this.request.response;
+        }
+        this.isWaiting = false;
+        if (this.request.status >= 200 && this.request.status < 300) {
+            this.trigger("success",this.responseData);
+        }else if (this.request.status >= 300 && this.request.status < 400) {
+            this.trigger("redirect",this.request.getResponseHeader("location"));
+        };
+        this.isLoaded = true;
+        this.ready = true;
+        this.trigger("finish");
+    });
+    this.error(function(i) {
+        this.isWaiting = false;
+        this.isLoaded = true;
+        this.ready = false;
+        this.trigger("finish");
+    });
+    this.send = async function(){
+        if(this.isWaiting) return;
+        this.trigger("start",this);
+        this.isWaiting = true;
+        this.request.open(this.method,this.url.toString(),true);
+        this.request.send(this.data);
+        return await new Promise(ok=>{
+            this.finish(i => ok(this.responseData));
+        })
+    };
+    this.then = function(f){
+        if(this.isWaiting)
+        {
+            this.finish(k => f(this.responseData));
+        }else if(this.isLoaded){
+            f.apply(this.request,[this.responseData])
+        }else{
+            this.send();
+            this.finish(k => f(this.responseData));
+        }
+    };
+    this.catch = function(f){
+        if(this.isWaiting)
+        {
+            this.error(x => f(this.request.responseText));
+            this.timeout(x => f(this.request.responseText));
+        }else if(!this.isLoaded){
+            this.send();
+            this.error(x => f(this.request.responseText));
+            this.timeout(x => f(this.request.responseText));
+        }
+    };
 };
 nb.xhr.methods = ['POST','PUT','OPTIONS','HEAD','GET','PATCH','DELETE']
 nb.xhr.multipartHeader = "multipart/form-data";
@@ -2126,7 +2181,7 @@ nb.fileTODataURL = nb.blobTODataURL = async function(file){
  * @type {IDBFactory}
  */
 nb.indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
-nb.IDBTransaction = window.IDBTransaction || window.webkitIDBTransaction || window.msIDBTransaction || {READ_WRITE: "readwrite"}; // This line should only be needed if it is needed to support the object's constants for older browsers
+nb.IDBTransaction = window.IDBTransaction || window.webkitIDBTransaction || window.msIDBTransaction || {READ_WRITE: "readwrite"};
 nb.IDBKeyRange = window.IDBKeyRange || window.webkitIDBKeyRange || window.msIDBKeyRange;
 
 
@@ -2155,28 +2210,63 @@ nb.IndexedDB = function(o){
         dbRequest.onerror = i => isReady = false;
     };
     this.add = async function(name,value){
-        var store = db.transaction([name], "readwrite").objectStore(name).add(value);
-        await new Promise(ok => store.onsuccess = store.onerror = event => ok(event.target.result));
+        if(!isReady) return;
+        let store = db.transaction([name], "readwrite").objectStore(name).add(value);
+        return await new Promise(ok => {
+            store.onsuccess = store.onerror = function(event){
+                ok(event.target.result)
+            }
+        });
     }
     this.clear = async function(name){
-        var store = db.transaction([name], "readwrite").objectStore(name).clear();
-        await new Promise(ok => store.onsuccess = store.onerror = event => ok(event.target.result));
+        if(!isReady) return;
+        let store = db.transaction([name], "readwrite").objectStore(name).clear();
+        return await new Promise(ok => {
+            store.onsuccess = store.onerror = function(event){
+                ok(event.target.result)
+            }
+        });
     }
     this.count = async function(name){
-        var store = db.transaction([name], "readonly").objectStore(name).count();
-        await new Promise(ok => store.onsuccess = store.onerror = event => ok(event.target.result));
+        if(!isReady) return;
+        let store = db.transaction([name], "readonly").objectStore(name).count();
+        return await new Promise(ok => {
+            store.onsuccess = store.onerror = function(event){
+                ok(event.target.result)
+            }
+        });
     }
     this.delete = async function(name,value){
-        var store = db.transaction([name], "readwrite").objectStore(name).delete(value);
-        await new Promise(ok => store.onsuccess = store.onerror = event => ok(event.target.result));
+        if(!isReady) return;
+        let store = db.transaction([name], "readwrite").objectStore(name).delete(value);
+        return await new Promise(ok => {
+            store.onsuccess = store.onerror = function(event){
+                ok(event.target.result)
+            }
+        });
     }
     this.getAll = async function(name){
-        var store = db.transaction([name], "readonly").objectStore(name).getAll();
-        await new Promise(ok => store.onsuccess = store.onerror = event => ok(event.target.result));
+        if(!isReady) return;
+        let store = db.transaction([name], "readonly").objectStore(name).getAll();
+        return await new Promise(ok => {
+            store.onsuccess = store.onerror = function(event){
+                ok(event.target.result)
+            }
+        });
     }
     this.put = async function(name,value){
-        var store = db.transaction([name], "readwrite").objectStore(name).put(value);
-        await new Promise(ok => store.onsuccess = store.onerror = event => ok(event.target.result));
+        if(!isReady) return;
+        let store = db.transaction([name], "readwrite").objectStore(name).put(value);
+        return await new Promise(ok => {
+            store.onsuccess = store.onerror = function(event){
+                ok(event.target.result)
+            }
+        });
+    }
+    this.close = async function(){
+        if(!isReady) return;
+        db.close();
+        isReady = false;
     }
     let that = this;
 }
@@ -2379,4 +2469,118 @@ nb.design = function(o){
         }
     };  
     return nb(doc)
+};
+
+/**
+ * #################################################
+ * ########                                #########
+ * ######## Translation API                #########
+ * ########                                #########
+ * #################################################
+ */
+
+nb.localization = function(){
+    this.context = {};
+    this.mode = "";
+    this.setMode = (a) => this.mode = a;
+    this.getMode = () => this.mode;
+    this.setContext = (a) => this.context = a;
+    this.getContext = () => this.context;
+    this.toJSON = function(){
+        return this.getContext()
+    }
+};
+
+nb.localization.prototype.get = function(...args){
+    if(this.context[this.mode]){
+        return this.context[this.mode].get(...args)
+    }
+};
+nb.localization.prototype.addLanguageContext = function(name){
+    if(this.mode !== "") this.name = name;
+    return this.context[name] = new nb.localization.LanguageContext(name);
+};
+nb.localization.prototype.getLanguageContext = function(name){
+    return this.context[name];
+};
+nb.localization.LanguageContext = function(name){
+    this.name = name;
+    this.codes = {};
+    this.toJSON = function(){
+        return {
+            "name":this.name,
+            "context":this.codes
+        }
+    }
+};
+nb.localization.LanguageContext.prototype.downloadLanguage = async function(...args){
+    let json = new nb.xhr(...args);
+    json = await json;
+    let context;
+    try{
+        if(typeof json != "string"){
+            context = json;
+        }else context = JSON.parse(json);
+        this.addSource(context);
+    }catch(i){
+        console.warn(this.name+" is can not provided",i)
+    };
+};
+nb.localization.LanguageContext.prototype.addSource = function(source,prefix){
+    prefix ||= "";
+    for(let code in source){
+        if(typeof source[code] == "string")
+        {
+            this.set(prefix+code,source[code])
+        }else if(source[code] instanceof Array){
+            this.set(prefix+code,source[code][0],source[code][1])
+        }else{
+            this.addSource(source[code],code+'.')
+        }
+    };
+};
+nb.localization.LanguageContext.prototype.set = function(code,text,...defaultParam){
+    if(!this.codes[code]){
+        if(defaultParam[0] instanceof Array)
+        {
+            this.codes[code] = [text,defaultParam[0]];
+        }else{
+            this.codes[code] = [text,defaultParam];
+        }
+    }
+};
+nb.localization.StringObject = function(d_){
+    this.toJSON = function(){
+        return d_
+    }
+    this.toString = function(){
+        return d_
+    }
+    this.parse = function(...arg){
+        let u = 0;
+        return d_.replace(/\$\d+/ig,(d,m,y) => {
+            return arg[u++] || d
+        })
+    }
+}
+nb.localization.LanguageContext.prototype.get = function(code,...args){
+    if(this.codes[code]){
+        let t = new nb.localization.StringObject(this.codes[code][0]);
+        if(args.length != 0){
+            return t.parse(...args)
+        }else{
+            return t
+        }
+    }else return ""
+};
+nb.localization.prototype.composite = function(str,...args){
+    let lang = this.context[this.mode];
+    let y =  str.replace(/\[\&([^\]]+)\]/ig,function(m,match){
+        return lang.get(...(
+            match.split('|')
+        ))
+    });
+    let t = new nb.localization.StringObject(y);
+    if(args.lengh == 0) return t.toString();
+    else return t.parse(...args).toString();
 };
