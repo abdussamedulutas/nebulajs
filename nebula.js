@@ -2134,7 +2134,15 @@ nb.xhr.putParams = function(obj,url){
  * #######################################################
  */
 
-
+/**
+ * @param {Blob} blob
+ */
+nb.blobTOByteArray = async function(blob){
+    return await blob.arrayBuffer();
+}
+nb.blobTOText = async function(blob){
+    return await blob.text();
+}
 nb.blobTOFile = function(blob,filename){
     return new File([blob],filename,{
         type:blob.type,
@@ -2239,6 +2247,15 @@ nb.IndexedDB = function(o){
     this.delete = async function(name,value){
         if(!isReady) return;
         let store = db.transaction([name], "readwrite").objectStore(name).delete(value);
+        return await new Promise(ok => {
+            store.onsuccess = store.onerror = function(event){
+                ok(event.target.result)
+            }
+        });
+    }
+    this.get = async function(name,key){
+        if(!isReady) return;
+        let store = db.transaction([name], "readonly").objectStore(name).get(key);
         return await new Promise(ok => {
             store.onsuccess = store.onerror = function(event){
                 ok(event.target.result)
@@ -2584,3 +2601,71 @@ nb.localization.prototype.composite = function(str,...args){
     if(args.lengh == 0) return t.toString();
     else return t.parse(...args).toString();
 };
+(function(){
+    let dom = nb.createElement("div");
+    nb.load(function(){
+        dom.attr({
+            "language":"application/javascipt",
+            id:"nb_modules"
+        }).put("body")
+    });
+    let _first = `nb.require.Loader('$NAME',async function(exports,module,__filename,__dirname){\n`;
+    let _last = `\n})`;
+    nb.require = async function(path,scope,o){
+        let spath = nb.require.resolve(path,scope);
+        if(nb.require.cache[spath.sort]){
+            return nb.require.cache[spath.sort].exports
+        }else if(o?.noload) return;
+        let tag = nb.createElement("script");
+        tag.attr({
+            title:spath.name
+        })
+        let u = new nb.xhr(spath.sort);
+        let content = await u;
+        let script = _first.replace("$NAME",spath.sort.replace(/['\\]/,i => '\\'+i))+content+_last;
+        tag.add(nb.createText(script));
+        dom.add(tag);
+        return await nb.require(path,scope,{
+            noload:true
+        });
+    };
+    nb.require.resolve = function(path,scope){
+        if(!/\.(js|hmx|jsx|es|es6)$/i.test(path)){
+            path += ".js";
+        };
+        let L = new URL(path,scope||nb.require.scope),sort;
+        if(nb.require.scope.origin == L.origin){
+            sort = L.pathname
+        }else{
+            sort = L.href;
+        };
+        return {
+            long:L.href,
+            sort:sort,
+            url:L,
+            name:L.pathname.split('/').slice(-1).join('/'),
+        };
+    }
+    nb.require.Loader = async function(path,callback,scope){
+        let absolutePath = nb.require.resolve(path,scope);
+        let module = {
+            name:absolutePath.url.pathname.split('/').slice(-1).join('/'),
+            dirname:absolutePath.url.pathname.split('/').slice(0,-1).join('/')+"/",
+            path:absolutePath.url.pathname,
+            url:absolutePath.url.href,
+            exports:{}
+        };
+        callback(
+            module.exports,
+            module,
+            module.name,
+            module.url
+        );
+        nb.require.cache[
+            absolutePath.sort
+        ] = module;
+        return module.exports;
+    };
+    nb.require.scope = new URL("/modules/",window.location);
+    nb.require.cache = {};
+})();
