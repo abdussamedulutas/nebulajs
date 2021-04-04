@@ -848,7 +848,11 @@ nb.fn.prototype.parent = function(selector)
 {
     let parents = [];
     this.each(elem => {
-        selector ? parents.push(...elem.closest()) : elem.parentNode && parents.push(elem.parentNode)
+        if(selector)
+        {
+            let t;
+            (t = elem.closest(selector)) &&  && parents.push(t)
+        }else parents.push(elem.parentNode)
     })
     return new nb.fn(parents);
 };
@@ -891,10 +895,10 @@ nb.fn.prototype.next = function(selector)
         {
             elem.nextElementSibling && results.push(elem.nextElementSibling)
         }else{
-            let current = elem.nextElementSibling;
-            while(current && current.matches(selector)){
+            let current = elem;
+            do{
                 current = current.nextElementSibling
-            };
+            }while(!current.matches(selector));
             current && results.push(current);
         }
     })
@@ -907,7 +911,7 @@ nb.fn.prototype.next = function(selector)
 nb.fn.prototype.nextNode = function()
 {
     let results = [];
-    this.eachh(elem => {
+    this.each(elem => {
         elem.nextSibling && results.push(elem.nextSibling)
     })
     return new nb.fn(results);
@@ -924,10 +928,10 @@ nb.fn.prototype.prev = function(selector)
         {
             elem.previousElementSibling && results.push(elem.previousElementSibling)
         }else{
-            let current = elem.previousElementSibling;
-            while(current && current.matches(selector)){
+            let current = elem;
+            do{
                 current = current.previousElementSibling
-            };
+            }while(!current.matches(selector));
             current && results.push(current);
         }
     })
@@ -2470,6 +2474,7 @@ nb.design = function(o){
     {
         for(let jselement of o)
         {
+            if(!jselement) continue;
             if(typeof jselement == "string" || nb.isText(jselement)){
                 doc.append(jselement);
                 continue;
