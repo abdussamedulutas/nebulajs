@@ -181,13 +181,25 @@ nb.fn = function(e){
 nb.event=function(){
     let k=this.constructor.name=='event',u=k?this:{},
     events = {},
+    subscribes = {},
     invoke = {};
     /**
      * @param {String} eventName
      */
     u.on=u.addEventListener=function(eventName,callback){
         (events[eventName]||=[]).push(callback);
+        (subscribes[eventName]||=[]).forEach(i => i())
         return u
+    },
+    u.off=u.removeEventListener=function(eventName,callback){
+        if(events[eventName].length!=0) events[eventName] = events[eventName].filter(f => f != callback);
+        return u
+    },
+    u.listenEventRegister = function(eventName,callback){
+        (subscribes[eventName]||=[]).push(callback);
+    },
+    u.listenEventUnregister = function(eventName,callback){
+        (subscribes[eventName]||=[]).push(callback);
     },
     u.then=function(f){
         u.on('then',f);
@@ -197,8 +209,8 @@ nb.event=function(){
         u.on('catch',f);
         return u
     },
-    u.task=function(name,f,maxCall){
-        (invoke[name]||={c:[],r:[],data:null}).c.push({f:f,args:[],mc:maxCall||-1,cc:0,mct:-1});
+    u.task=function(name,fn,maxCall){
+        (invoke[name]||={c:[],r:[],data:null}).c.push({fn:fn,args:[],mc:maxCall||-1,cc:0,mct:-1});
     },
     u.invoke=async function(name,...args){
         let i = (invoke[name]||={c:[],r:[],data:null}),flags=0,data=i.data,d=new Date().getTime();
@@ -210,8 +222,8 @@ nb.event=function(){
                 getValue:() => data,
                 stop:() => flags |= 1,
             };
-            if(o.f.constructor.name == 'AsyncFunction') await o.f.apply(k,[k,...args]);
-            else o.f.apply(k,[k,...args]);
+            if(o.fn.constructor.name == 'AsyncFunction') await o.fn.apply(k,[k,...args]);
+            else o.fn.apply(k,[k,...args]);
             if(flags & 1) break;
         };
         if(flags & 2) i.data = data;
@@ -975,6 +987,39 @@ nb.fn.prototype.attr = function(name,value)
         })
     }else{
         return this.elem && this.elem.attributes;
+    }
+    return this;
+};
+nb.fn.prototype.addClass = function(name)
+{
+    if(this.empty) return this; 
+    if(typeof name == "string")
+    {
+        this.elements.each(function(elem){
+            elem.classList.add(name)
+        })
+    }
+    return this;
+};
+nb.fn.prototype.removeClass = function(name)
+{
+    if(this.empty) return this; 
+    if(typeof name == "string")
+    {
+        this.elements.each(function(elem){
+            elem.classList.remove(name)
+        })
+    }
+    return this;
+};
+nb.fn.prototype.toggleClass = function(name)
+{
+    if(this.empty) return this; 
+    if(typeof name == "string")
+    {
+        this.elements.each(function(elem){
+            elem.classList.toggle(name)
+        })
     }
     return this;
 };
@@ -2047,7 +2092,9 @@ nb.xhr = function()
             this.trigger("success",this.responseData);
         }else if (this.request.status >= 300 && this.request.status < 400) {
             this.trigger("redirect",this.request.getResponseHeader("location"));
-        };
+        }else{
+            this.trigger("error",this.responseData);
+        }
         this.isLoaded = true;
         this.ready = true;
         this.trigger("finish");
@@ -2071,12 +2118,12 @@ nb.xhr = function()
     this.then = function(f){
         if(this.isWaiting)
         {
-            this.finish(k => f(this.responseData));
+            this.success(k => f(this.responseData));
         }else if(this.isLoaded){
             f.apply(this.request,[this.responseData])
         }else{
             this.send();
-            this.finish(k => f(this.responseData));
+            this.success(k => f(this.responseData));
         }
     };
     this.catch = function(f){
@@ -2603,15 +2650,23 @@ nb.localization.prototype.composite = function(str,...args){
 };
 (function(){
     let dom = nb.createElement("div");
+    dom.attached = false;
     nb.load(function(){
         dom.attr({
             "language":"application/javascipt",
             id:"nb_modules"
-        }).put("body")
+        })
     });
-    let _first = `nb.require.Loader('$NAME',async function(exports,module,__filename,__dirname){\n`;
+    let _first = `
+        nb.require.Loader('$NAME',async function(exports,module,__filename,__dirname){\n
+        let require = async path => await nb.require(path,__dirname);
+    `;
     let _last = `\n})`;
     nb.require = async function(path,scope,o){
+        if(!dom.attached && nb.require.storeTo == "dom"){
+            dom.put("body");
+            dom.attached = true;
+        }
         let spath = nb.require.resolve(path,scope);
         if(nb.require.cache[spath.sort]){
             return nb.require.cache[spath.sort].exports
@@ -2623,12 +2678,21 @@ nb.localization.prototype.composite = function(str,...args){
         let u = new nb.xhr(spath.sort);
         let content = await u;
         let script = _first.replace("$NAME",spath.sort.replace(/['\\]/,i => '\\'+i))+content+_last;
-        tag.add(nb.createText(script));
-        dom.add(tag);
-        return await nb.require(path,scope,{
-            noload:true
-        });
+        switch(nb.require.storeTo)
+        {
+            case "memory":
+                (new Function(script))();
+                return nb.require.cache[spath.sort].exports;
+            case "dom":
+            default:
+                tag.add(nb.createText(script));
+                dom.add(tag);
+                return await nb.require(path,scope,{
+                    noload:true
+                });
+        }
     };
+    nb.require.storeTo = "memory" // memory or dom
     nb.require.resolve = function(path,scope){
         if(!/\.(js|hmx|jsx|es|es6)$/i.test(path)){
             path += ".js";
