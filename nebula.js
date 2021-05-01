@@ -146,7 +146,7 @@ nb.fn = function(e){
         set:() => {throw new Error("length not writable variable")}
     })
     Object.defineProperty(this,"elem",{
-        get:() => this.elements.$arg[0],
+        get:() => nb.isFragment(this.elements.$arg[0]) ? this.elements.$arg[0].children[0] : this.elements.$arg[0],
         set:() => {throw new Error("elem not writable variable")}
     })
     Object.defineProperty(this,"elements",{
@@ -812,32 +812,38 @@ nb.fn.prototype.last = function(){
 };
 /**
  * @param {(func:nb.fn) => {}} func
+ * @param {Boolean} noFragment
  */
-nb.fn.prototype.each = function(func)
+nb.fn.prototype.each = function(func,noFragment)
 {
     this.$arg.forEach(elem => {
-        func.call(nb(elem),elem)
+        if(nb.isFragment(elem) && !noFragment) Array.from(elem.children).forEach(e => func.call(nb(e),e));
+        else func.call(nb(elem),elem)
     })
     return this;
 };
 /**
  * @param {(func:nb.fn) => {}} func
+ * @param {Boolean} noFragment
  * @returns {nb.fn}
  */
-nb.fn.prototype.filter = function(func)
+nb.fn.prototype.filter = function(func,noFragment)
 {
     return nb(this.$arg.filter(elem => {
-        return func.call(nb(elem),elem)
+        if(nb.isFragment(elem) && !noFragment) return Array.from(elem.children).filter(e => func.call(nb(e),e));
+        else return func.call(nb(elem),elem)
     }))
 };
 /**
  * @param {(func:nb.fn) => {}} func
+ * @param {Boolean} noFragment
  * @returns {nb.fn}
  */
-nb.fn.prototype.map = function(func)
+nb.fn.prototype.map = function(func,noFragment)
 {
     return nb(this.$arg.map(elem => {
-        return func.call(nb(elem),elem)
+        if(nb.isFragment(elem) && !noFragment) return Array.from(elem.children).map(e => func.call(nb(e),e));
+        else return func.call(nb(elem),elem)
     }))
 };
 /**
@@ -851,7 +857,7 @@ nb.fn.prototype.parent = function(selector)
         if(selector)
         {
             let t;
-            (t = elem.closest(selector)) &&  && parents.push(t)
+            (t = elem.closest(selector)) && parents.push(t)
         }else parents.push(elem.parentNode)
     })
     return new nb.fn(parents);
@@ -994,6 +1000,11 @@ nb.fn.prototype.attr = function(name,value)
     }
     return this;
 };
+/**
+ * 
+ * @param {String} name 
+ * @returns 
+ */
 nb.fn.prototype.addClass = function(name)
 {
     if(this.empty) return this; 
@@ -1005,6 +1016,11 @@ nb.fn.prototype.addClass = function(name)
     }
     return this;
 };
+/**
+ * 
+ * @param {String} name 
+ * @returns 
+ */
 nb.fn.prototype.removeClass = function(name)
 {
     if(this.empty) return this; 
@@ -1016,6 +1032,11 @@ nb.fn.prototype.removeClass = function(name)
     }
     return this;
 };
+/**
+ * 
+ * @param {String} name 
+ * @returns 
+ */
 nb.fn.prototype.toggleClass = function(name)
 {
     if(this.empty) return this; 
@@ -1121,7 +1142,7 @@ nb.fn.prototype.put = function(...args)
 {
     let dom = nb.dom(...args);
     dom.length && this.each(elem => {
-        dom[0].append(elem)
+        dom[0].append(elem);
     })
     return this;
 };
@@ -1187,6 +1208,24 @@ nb.fn.prototype.textContent = function(value)
         });
         return this;
     }
+};
+/**
+ * 
+ * @param {String} value 
+ * @returns {String}
+ */
+nb.fn.prototype.toDOM = function()
+{
+    let dom = [];
+    this.$arg.forEach(elem => {
+        if(nb.isFragment(elem))
+        {
+            dom.push(
+                ...Array.from(elem.children)
+            )
+        }else dom.push(elem);
+    });
+    return nb(dom);
 };
 /**
  * 
@@ -2521,6 +2560,16 @@ nb.design = function(o){
                 switch(key)
                 {
                     case "$":break;
+                    case "style":{
+                        if(typeof jselement.style == "string" || typeof jselement.style == "number")
+                        {
+                            current.elem.style = jselement.style;
+                            break;
+                        }else if(typeof jselement.style == "object"){
+                            current.elem.style = nb.css.serializeRule(jselement.style);
+                            break;
+                        }else continue;
+                    }
                     case "in":
                         current.add(nb.design(jselement.in));
                         break;
