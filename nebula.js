@@ -2,7 +2,7 @@
 /**
  * @returns {nb.fn}
  */
-const nb = (...args) => new nb.fn(nb.dom(...args));
+const nb = (...args) => new nb.fn(nb.dom(...args),args);
 /**
  * ########################################
  * ########                       #########
@@ -84,7 +84,7 @@ nb.dom = (...args) => {
     let result = [];
     let searchThing = thing => {
         if(!thing) return;
-        if(nb.isDesignJSON(thing)) return result.push(nb.design(thing).first());
+        if(nb.isDesignJSON(thing)) return result = result.concat(nb.design(thing).all());
         if(thing instanceof Array) return thing.forEach(searchThing);
         if(nb.isNode(thing)) result.push(thing);
         if(thing instanceof nb.fn) result.push(...thing);
@@ -121,11 +121,12 @@ nb.isDesignJSON = function(o){
  * @public
  * @class
  */
-nb.fn = function(e){
+nb.fn = function(e,c){
     /**
      * @type {HTMLElement[]}
      */
     this.$arg = e || [];
+    this.$$arg = c;
     this.$scope = this;
     this[Symbol.iterator] = function(){
         let k = [];
@@ -146,7 +147,7 @@ nb.fn = function(e){
         set:() => {throw new Error("length not writable variable")}
     })
     Object.defineProperty(this,"elem",{
-        get:() => this.elements.$arg[0],
+        get:() => nb.isFragment(this.elements.$arg[0]) ? this.elements.$arg[0].children[0] : this.elements.$arg[0],
         set:() => {throw new Error("elem not writable variable")}
     })
     Object.defineProperty(this,"elements",{
@@ -257,6 +258,8 @@ nb.event=function(){
     };
     if(!k) return u;
 };
+
+
 nb.core={};
 
 (function(){
@@ -795,49 +798,55 @@ nb.hemex = Hemex;
  * @returns {HTMLElement[]}
  */
 nb.fn.prototype.all = function(){
-    return [...this]
+    return [...this.toDOM()]
 };
 /**
  * @returns {HTMLElement}
  */
 nb.fn.prototype.first = function(){
-    return [...this][0]
+    return this.all()[0]
 };
 /**
  * @returns {HTMLElement}
  */
 nb.fn.prototype.last = function(){
-    let y = [...this];
+    let y = this.all();
     return y.length == 0 ? null : y[y.length - 1]
 };
 /**
  * @param {(func:nb.fn) => {}} func
+ * @param {Boolean} noFragment
  */
-nb.fn.prototype.each = function(func)
+nb.fn.prototype.each = function(func,noFragment)
 {
     this.$arg.forEach(elem => {
-        func.call(nb(elem),elem)
+        if(nb.isFragment(elem) && !noFragment) Array.from(elem.children).forEach(e => func.call(nb(e),e));
+        else func.call(nb(elem),elem)
     })
     return this;
 };
 /**
  * @param {(func:nb.fn) => {}} func
+ * @param {Boolean} noFragment
  * @returns {nb.fn}
  */
-nb.fn.prototype.filter = function(func)
+nb.fn.prototype.filter = function(func,noFragment)
 {
     return nb(this.$arg.filter(elem => {
-        return func.call(nb(elem),elem)
+        if(nb.isFragment(elem) && !noFragment) return Array.from(elem.children).filter(e => func.call(nb(e),e));
+        else return func.call(nb(elem),elem)
     }))
 };
 /**
  * @param {(func:nb.fn) => {}} func
+ * @param {Boolean} noFragment
  * @returns {nb.fn}
  */
-nb.fn.prototype.map = function(func)
+nb.fn.prototype.map = function(func,noFragment)
 {
     return nb(this.$arg.map(elem => {
-        return func.call(nb(elem),elem)
+        if(nb.isFragment(elem) && !noFragment) return Array.from(elem.children).map(e => func.call(nb(e),e));
+        else return func.call(nb(elem),elem)
     }))
 };
 /**
@@ -851,7 +860,7 @@ nb.fn.prototype.parent = function(selector)
         if(selector)
         {
             let t;
-            (t = elem.closest(selector)) &&  && parents.push(t)
+            (t = elem.closest(selector)) && parents.push(t)
         }else parents.push(elem.parentNode)
     })
     return new nb.fn(parents);
@@ -994,6 +1003,11 @@ nb.fn.prototype.attr = function(name,value)
     }
     return this;
 };
+/**
+ * 
+ * @param {String} name 
+ * @returns 
+ */
 nb.fn.prototype.addClass = function(name)
 {
     if(this.empty) return this; 
@@ -1005,6 +1019,11 @@ nb.fn.prototype.addClass = function(name)
     }
     return this;
 };
+/**
+ * 
+ * @param {String} name 
+ * @returns 
+ */
 nb.fn.prototype.removeClass = function(name)
 {
     if(this.empty) return this; 
@@ -1016,6 +1035,11 @@ nb.fn.prototype.removeClass = function(name)
     }
     return this;
 };
+/**
+ * 
+ * @param {String} name 
+ * @returns 
+ */
 nb.fn.prototype.toggleClass = function(name)
 {
     if(this.empty) return this; 
@@ -1121,7 +1145,7 @@ nb.fn.prototype.put = function(...args)
 {
     let dom = nb.dom(...args);
     dom.length && this.each(elem => {
-        dom[0].append(elem)
+        dom[0].append(elem);
     })
     return this;
 };
@@ -1187,6 +1211,24 @@ nb.fn.prototype.textContent = function(value)
         });
         return this;
     }
+};
+/**
+ * Parse virtual dom to pure-dom
+ * @param {String} value 
+ * @returns {nb.fn}
+ */
+nb.fn.prototype.toDOM = function()
+{
+    let dom = [];
+    this.$arg.forEach(elem => {
+        if(nb.isFragment(elem))
+        {
+            dom.push(
+                ...Array.from(elem.children)
+            )
+        }else dom.push(elem);
+    });
+    return nb(dom);
 };
 /**
  * 
@@ -1357,14 +1399,11 @@ Object.defineProperty(nb.css,"id",{
             let rnumber = function(){
                 return parseInt(65 + Math.random() * 10)
             };
-            let bigLet = function(){
-                return String.fromCharCode(parseInt(65 + Math.random() * 24))
-            };
             let smLet = function(){
                 return String.fromCharCode(parseInt(97 + Math.random() * 24))
             };
             let randLet = function(){
-                return [rnumber,bigLet,smLet][parseInt(Math.random() * 10) % 3]();
+                return [rnumber,smLet][parseInt(Math.random() * 10) % 2]();
             };
             let id = smLet()+Array(parseInt(u)).fill(0).map(function(){return randLet()}).join('');
             if(nb.css.ids[id]) continue;
@@ -1427,7 +1466,7 @@ nb.css.var = function(name,value)
 nb.css.vars = {};
 nb.css.calc = val => 'calc('+val+')';
 nb.css.attr = val => 'attr('+val+')';
-nb.css.serializeCSSObject = function(selector,o)
+nb.css.serializeCSSObject = function(selector,o,isarray)
 {
     let css = [];
     o.merge && o.merge.split(/\s+/g).forEach(name => {
@@ -1454,7 +1493,7 @@ nb.css.serializeCSSObject = function(selector,o)
             css.push('}');
             continue;
         }
-        let sname = (/^\s*[^\&]/i.test(name) ?  '& ' + name : name).replace(/\&/g,selector);
+        let sname = (/^\s*[^\&]/i.test(name) ? name : name).replace(/\&/g,selector);
         if(name.startsWith("@keyframe"))
         {
             css.push(
@@ -1464,7 +1503,7 @@ nb.css.serializeCSSObject = function(selector,o)
         }
         css.push(sname + "{"+nb.css.serializeRule(o[name])+"}");
     }
-    return css.join('')
+    return !!isarray ? css : css.join('');
 }
 nb.css.copyCSSObject = function(target,source){
     for(let name in source) switch(name)
@@ -1515,8 +1554,14 @@ nb.css.mediaTitleResolver = function(e){
 }
 nb.css.add = function(name,cssObject)
 {
-    if(nb.css.classes[name]) throw new Error(name+" rule already exists");
-    nb.css.classes[name] = Object.freeze(cssObject);
+    if(typeof name == "string")
+    {
+        if(nb.css.classes[name]) throw new Error(name+" rule already exists");
+        nb.css.classes[name] = Object.freeze(cssObject);
+    }else Object.entries(name).forEach(([name,cssObject]) => {
+        if(nb.css.classes[name]) throw new Error(name+" rule already exists");
+        nb.css.classes[name] = Object.freeze(cssObject);
+    });
 }
 nb.css.applyCSSRuleDom = function(element,css){
     css.split(/\s*;\s*/g).map(function(e){
@@ -1528,29 +1573,71 @@ nb.css.applyCSSRuleDom = function(element,css){
 }
 nb.css.ids = {};
 nb.css.dom = nb.createElement("style");
+nb.css.dom.attr("aria-description","hybrid-theme");
+nb.css.ImportDom = nb.createElement("style");
+nb.css.ImportDom.attr("aria-description","hybrid-theme-import");
 nb.css.ready = false;
+nb.css.import = function(text){
+    //nb.css._insertWrapper(`@import url('${text.replace(/'/g,'\\\'')}');`)
+    nb.createText(`@import url('${text.replace(/'/g,'\\\'')}');`).put(nb.css.ImportDom);
+};
+nb.css.insertCSS = function(text){
+    nb.css._insertWrapper(`${text};`)
+    //nb.createText(text).put(nb.css.dom);
+};
+nb.css.connect = e => {
+    nb.css.ImportDom.put(document.head);    
+    nb.css.dom.put(document.head);
+    nb.css.ready = true;
+}
+nb.css._insertWrapper = (text,mode = nb.css._insertWrapper.mode) => {
+    if(!nb.css.ready) nb.css.connect();
+    switch(mode)
+    {
+        case "debug":{
+            nb.createText(text).put(nb.css.dom);
+            break;
+        }
+        case "plain":
+        default:{
+            nb.css.dom.elem.sheet.insertRule(text);
+        }
+    }
+};
+nb.css._insertComment = (text,mode = nb.css._insertWrapper.mode) => {
+    if(!nb.css.ready) nb.css.connect();
+    switch(mode)
+    {
+        case "debug":{
+            nb.createComment(text).put(nb.css.dom);
+            break;
+        }
+    }
+};
+nb.css._insertWrapper.mode = "debug";
 nb.css.use = function(id,selector)
 {
-    if(!nb.css.ready){
-        nb.css.dom.put(document.head);
-        nb.css.ready = true;
-    }
-    let cssObjectName = (
-        typeof id == "string" ? id.split(/\s+/g,) : id
-    ).sort();
-
-    if(nb.css.ids[cssObjectName.join(',')])
+    if(typeof id == "string")
     {
-        return nb.css.ids[cssObjectName.join(',')];
+        let cssObjectName = (
+            typeof id == "string" ? id.split(/\s+/g,) : id
+        ).sort();
+    
+        if(nb.css.ids[cssObjectName.join(',')])
+        {
+            return nb.css.ids[cssObjectName.join(',')];
+        }
+        let did = nb.css.ids[cssObjectName.join(',')] = selector ? selector : nb.css.id;
+    
+        let rawCSSRule = nb.css.serializeCSSObject("." + did,{
+            merge:cssObjectName.join(' ')
+        },true);
+        nb.css._insertComment(cssObjectName.join(' '));
+        rawCSSRule.forEach( e => nb.css._insertWrapper(e));
+        return did
+    }else if(id instanceof Array){
+        return id.map(id => nb.css.use(id,selector)).join(' ');
     }
-    let did = nb.css.ids[cssObjectName.join(',')] = selector ? selector : nb.css.id;
-
-    let rawCSSRule = nb.css.serializeCSSObject("." + did,{
-        merge:cssObjectName.join(' ')
-    });
-    nb.createComment(cssObjectName.join(' ')).put(nb.css.dom);
-    nb.createText(rawCSSRule).put(nb.css.dom);
-    return did
 }
 
 
@@ -1606,7 +1693,7 @@ nb.RGB.init = function(...args){
         }
     }else val = (
         val || (
-            typeof args[0] == "number" && (val = nb.RGB.hexNumberToRGB(args[0]))
+            typeof args[0] == "number" && (val = nb.RGB.hexNumberToARGB(args[0]))
         ) || typeof args[0] == "string" &&  (
             val = nb.RGB.hex3a(args[0])
         ) || (
@@ -2053,17 +2140,13 @@ nb.xhr = function()
     this.request.onprogress = e => this.trigger("downloadprogress",e)
     this.request.onreadystatechange = e => this.trigger("statechange",e)
     this.request.ontimeout = e => this.trigger("timeout",e)
-    this.request.upload.onprogress = e => this.trigger("timeout",uploadprogress)
+    this.request.upload.onprogress = e => this.trigger("timeout",e)
 
     for(let headerName in this.headers)
     {
         this.request.setRequestHeader(headerName,this.headers[headerName])
     }
 
-    _errorCallback && this.error(_errorCallback);
-    _successCallback && this.success(_successCallback);
-    _downloadProgress && this.downloadprogress(_downloadProgress);
-    _uploadProgress && this.uploadprogress(_uploadProgress);
 
     this.trigger = function(event,...args){
         this.events[event].forEach(f => f.apply(this,args));
@@ -2141,6 +2224,12 @@ nb.xhr = function()
             this.timeout(x => f(this.request.responseText));
         }
     };
+
+    
+    _errorCallback && this.error(_errorCallback);
+    _successCallback && this.success(_successCallback);
+    _downloadProgress && this.downloadprogress(_downloadProgress);
+    _uploadProgress && this.uploadprogress(_uploadProgress);
 };
 nb.xhr.methods = ['POST','PUT','OPTIONS','HEAD','GET','PATCH','DELETE']
 nb.xhr.multipartHeader = "multipart/form-data";
@@ -2521,6 +2610,16 @@ nb.design = function(o){
                 switch(key)
                 {
                     case "$":break;
+                    case "style":{
+                        if(typeof jselement.style == "string" || typeof jselement.style == "number")
+                        {
+                            current.elem.style = jselement.style;
+                            break;
+                        }else if(typeof jselement.style == "object"){
+                            current.elem.style = nb.css.serializeRule(jselement.style);
+                            break;
+                        }else continue;
+                    }
                     case "in":
                         current.add(nb.design(jselement.in));
                         break;
@@ -2572,6 +2671,10 @@ nb.localization.prototype.addLanguageContext = function(name){
 nb.localization.prototype.getLanguageContext = function(name){
     return this.context[name];
 };
+/**
+ * Language Words and commands
+ * @param {string} name 
+ */
 nb.localization.LanguageContext = function(name){
     this.name = name;
     this.codes = {};
@@ -2582,6 +2685,9 @@ nb.localization.LanguageContext = function(name){
         }
     }
 };
+/**
+ * Download from server language context
+ */
 nb.localization.LanguageContext.prototype.downloadLanguage = async function(...args){
     let json = new nb.xhr(...args);
     json = await json;
@@ -2595,6 +2701,9 @@ nb.localization.LanguageContext.prototype.downloadLanguage = async function(...a
         console.warn(this.name+" is can not provided",i)
     };
 };
+/**
+ * Add Language source to context
+ */
 nb.localization.LanguageContext.prototype.addSource = function(source,prefix){
     prefix ||= "";
     for(let code in source){
@@ -2608,6 +2717,9 @@ nb.localization.LanguageContext.prototype.addSource = function(source,prefix){
         }
     };
 };
+/**
+ * Add translate to language context
+ */
 nb.localization.LanguageContext.prototype.set = function(code,text,...defaultParam){
     if(!this.codes[code]){
         if(defaultParam[0] instanceof Array)
@@ -2738,3 +2850,89 @@ nb.localization.prototype.composite = function(str,...args){
     nb.require.scope = new URL("/modules/",window.location);
     nb.require.cache = {};
 })();
+
+nb.media = {};
+
+/**
+ * @param {{video:Boolean|Object,audio:Boolean|Object}} options 
+ */
+nb.media.fromDevice = async function(options){
+    let t;
+    try {
+        t = await navigator.mediaDevices.getUserMedia(options);
+    }catch(i){};
+    return t;
+};
+
+/**
+ * @param {{video:Boolean|Object,audio:Boolean|Object,cursor:"always"|"motion"|"never",displaySurface:"application"|"browser"|"monitor"|"window"}} options 
+ */
+nb.media.fromDisplay = async function(options){
+    let t;
+    try {
+        t = await navigator.mediaDevices.getDisplayMedia(options);
+    }catch(i){};
+    return t;
+};
+
+/**
+ * @param {MediaStream} mediaStream 
+ */
+nb.media.stopStream = function(mediaStream){
+    mediaStream.getTracks().forEach(track => track.stop());
+}
+/**
+ * @param {MediaStream} mediaStream 
+ * @returns {nb.fn}
+ */
+nb.media.videoFrom = function(mediaStream){
+    return nb({
+        $:"video",
+        srcObject:mediaStream
+    });
+}
+
+nb.geolocation = {};
+/**
+ * 
+ * @returns {Promise<{latitude,longitude,accuracy}>}
+ */
+nb.geolocation.getPosition = async function(){
+    return await new Promise(ok => {
+        navigator.geolocation.getCurrentPosition(({coords}) => {
+            ok({
+                latitude: coords.latitude,
+                longitude: coords.longitude,
+                accuracy: coords.accuracy
+            })
+        },error => {
+            ok(false)
+        },{
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 0
+        })
+    })
+};
+
+nb.geolocation.watchPosition = async function(){
+    let events = new nb.event();
+    let yum = navigator.geolocation.watchPosition(({coords}) => {
+        events.emit("step",{
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+            accuracy: coords.accuracy
+        })
+    },error => {
+        events.emit("error")
+    },{
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 0
+    });
+    events.on("stop",function(){
+        navigator.geolocation.clearWatch(yum);
+        events.emit("stopped");
+    });
+    return events;
+};
