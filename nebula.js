@@ -133,7 +133,10 @@ nb.fn = function(e,c){
         Array.prototype.push.apply(k,this.$arg);
         return {
             next: () => {
-                let val = k.pop();
+                /*
+                    pop sondan aldığı için sırayı bozuyor
+                */
+                let val = k.unshift();
                 return {
                     value: val,
                     done: !val
